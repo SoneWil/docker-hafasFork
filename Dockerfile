@@ -3,15 +3,6 @@ FROM ubuntu
 RUN apt-get update
 RUN groupadd hafas
 RUN useradd -d /home/hafas -c 'HAFAS user' -g hafas -m -s /bin/bash hafas
-#CMD mkdir -p /dev/log
-#RUN touch /dev/log/root.log
-#RUN chgrp /dev/log/root.log
-#RUN chmod 775 /dev/log/root.log
-RUN apt-get -y install rsyslog
-#RUN echo "# Save local0 to an own log file (used by HAFAS)" >> etc/rsyslog.conf
-#RUN echo "local0.* /dev/log/root.log" >> etc/rsyslog.conf
-#RUN echo "local0.* /dev/log/hafas.log" >> etc/rsyslog.conf
-#RUN echo "local0.* /dev/log/main.log" >> etc/rsyslog.conf
 RUN mkdir -p /opt/hafas/script
 RUN chown -R hafas:hafas /opt/hafas
 
@@ -22,4 +13,11 @@ RUN /opt/hafas/script/bootstrap_hafas_environment.sh
 RUN /opt/hafas/script/create_server_wrapper.sh 
 RUN cp -p /opt/hafas/server/server.???  /opt/hafas/prod/hafas/main/server
 COPY /plan/ /opt/hafas/plan/5.20/hafas
-#RUN /opt/hafas/prod/hafas/main/server/server.sh start
+RUN mkdir -p /opt/hafas/prod/hafas/hafas-proxy/
+COPY /hafas-proxy/ /opt/hafas/prod/hafas/hafas-proxy/
+RUN ln -sf /opt/hafas/prod/hafas/hafas-proxy/bin/server.sh /etc/init.d/hafas-restproxy
+RUN chmod 0755 \
+  /etc/init.d/hafas-* \
+  /opt/hafas/prod/hafas/main/server/server.exe \
+  /opt/hafas/prod/hafas/hafas-proxy/bin/* \
+  /opt/hafas/script/* 
