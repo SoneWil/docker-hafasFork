@@ -1,0 +1,263 @@
+#!/bin/bash
+
+#-------------------------------------------------------------------------------
+date > $LOG_DIR/$LOG
+echo Info: neuer Start >> $LOG_DIR/$LOG
+
+# Wenn kein RT_MISC_DIR gesetzt, ist RT_MISC_DIR=RT_HAFAS_DIR
+if [ "x${RT_MISC_DIR}" = "x" ]; then
+  echo "No redundant Match Server, we will set RT_MISC_DIR to RT_HAFAS_DIR" >> $LOG_DIR/$LOG
+  RT_MISC_DIR=${RT_HAFAS_DIR}
+  export RT_MISC_DIR
+fi
+
+TIME_STAMP=`date +"%Y%m%d-%H%M%S"`
+
+export LOG_DIR=$RT_MATCH_DIR/log
+export LOG=planrt_copy.log
+export DELAYLOG=$RT_SKRIPT_DIR/delay_statistik.log
+export DELAYLOG_TMP=$DELAYLOG"_tmp"
+
+export CLEAN_SCRIPT=$RT_SKRIPT_DIR/planrt_clean
+export CLEAN_NEXT=$RT_SKRIPT_DIR/planrt_clean.next
+export CLEAN_BUFFER=$RT_SKRIPT_DIR/clean_buffer
+export CLEAN_BUFFER_CURRENT=$RT_SKRIPT_DIR/clean_buffer/buffer-${TIME_STAMP}
+export GATHER_BUFFER=$RT_SKRIPT_DIR/buffer
+export SERVERS_PATH=`cat $RT_SKRIPT_DIR/server.data`
+export DELAY_FILE_LIST=""
+
+#-------------------------------------------------------------------------------
+# Default-Optionen setzen
+BACKUP_DELAY_ONLY=n
+FALLBACK=n
+NAME_PLANRT=planrt
+NAME_PLANRTA=planrta
+NAME_PLANRTC=planrtc
+NAME_STATE=planrt.state
+NAME_HANDLES=handles
+NAME_STATE="x"
+MODE_MDELAY=0
+MODE_MULTI_MATCH=0
+MODE_NO_DELAY_LISTE=0
+FORCE_CLEANUP=0
+
+# Kommandozeilenparameter auswerten
+echo "CMD LINE: $*" >> $LOG_DIR/$LOG
+for i in $*
+do
+    case ${i:0:2} in
+        -a)   NAME_PLANRTA=${i:2};;
+        -h)   NAME_HANDLES=${i:2};;
+        -s)   NAME_STATE=${i:2};;
+        -c)   NAME_PLANRTC=${i:2};;
+        -d)   BACKUP_DELAY_ONLY=y;;
+        -f)   FALLBACK=y;;
+        -m)   MODE_MDELAY=1;;
+        -n)   MODE_NO_DELAY_LISTE=1;;
+        -M)   MODE_MULTI_MATCH=1;;
+        *)    NAME_PLANRT=$i;;
+    esac
+done
+
+#-------------------------------------------------------------------------------
+# Erzeuge ggf. fehlende Verzeichnisse
+if [ ! -d ${CLEAN_BUFFER} ]; then
+  mkdir -p ${CLEAN_BUFFER}
+fi
+
+# Ggf. Unterverzeichnis zum Aufsammeln der planrt's und delay_old's initial anlegen
+if [ ! -d $GATHER_BUFFER ]
+then
+  mkdir -p $GATHER_BUFFER
+fi
+#-------------------------------------------------------------------------------
+# Aktuellen Zeitstempel zusammenbauen
+DATUM=`date --rfc-3339='date'`
+JAHR=`echo $DATUM|cut -d- -f1`
+MONAT=`echo $DATUM|cut -d- -f2`
+TAG=`echo $DATUM|cut -d- -f3`
+ZEIT=`date --rfc-3339='seconds'|awk '{print $2}'`
+STUNDEN=`echo $ZEIT|cut -d: -f1`
+MINUTEN=`echo $ZEIT|cut -d: -f2`
+SEKUNDEN=`echo $ZEIT|cut -d: -f3|cut -d+ -f1`
+
+let TIMESTAMP="${JAHR}${MONAT}${TAG}${STUNDEN}${MINUTEN}${SEKUNDEN}"
+
+#-------------------------------------------------------------------------------
+# delay enthaelt verweise auf die eigentlichen delay Dateien. Liste einlesen
+if [ ${MODE_MDELAY} -eq 1 ]; then
+  echo -e "Multiple delay files. Reading list: " >> $LOG_DIR/$LOG
+  export DELAY_FILE_LIST="`cat $RT_SKRIPT_DIR/delay_old | grep -v "*S"`"
+  echo "${DELAY_FILE_LIST}" >> $LOG_DIR/$LOG
+fi
+
+# realtime.log im Buffer fortschreiben
+# =======================================
+echo "realtime.log im Buffer fortschreiben: cat $RT_MATCH_DIR/realtime.log >> $GATHER_BUFFER/realtime.log"  >> $LOG_DIR/$LOG
+cat $RT_MATCH_DIR/realtime.log >> $GATHER_BUFFER/realtime.log
+
+if [ -f $RT_SKRIPT_DIR/delay_history.log ]; then
+  # delay_history im Buffer fortschreiben
+  echo "delay_history im Buffer fortschreiben: cat $RT_SKRIPT_DIR/delay_history.log >> $GATHER_BUFFER/delay_history.log" >> $LOG_DIR/$LOG
+  cat $RT_SKRIPT_DIR/delay_history.log >> $GATHER_BUFFER/delay_history.log 
+  rm -vf $RT_SKRIPT_DIR/delay_history.log >> $LOG_DIR/$LOG
+fi
+
+# delay_statistik.log ersetzen.
+# =======================================
+if [ -e $DELAYLOG_TMP ];
+then
+    # einfach vorhandenes ueberschreiben (falls schon vorhanden)
+    cp $DELAYLOG_TMP $GATHER_BUFFER/$DELAYLOG
+    echo "-exec cp $DELAYLOG_TMP $GATHER_BUFFER/$DELAYLOG ;" >> $LOG_DIR/$LOG
+fi
+
+# delay_liste ggf. ersetzen
+# =======================================
+if [ -e $RT_MISC_DIR/delay_liste ];
+then
+    # Neue delay_liste wurde erzeugt
+    if [ ${MODE_NO_DELAY_LISTE} -eq 0 ]; then
+      # einfach vorhandenes ueberschreiben (falls schon vorhanden)
+      cp $RT_MISC_DIR/delay_liste $GATHER_BUFFER/delay_liste
+      echo "-exec cp $RT_MISC_DIR/delay_liste $GATHER_BUFFER/delay_liste ;" >> $LOG_DIR/$LOG
+    else 
+      echo "no new delay_liste was created." >> $LOG_DIR/$LOG
+    fi 
+fi
+
+# Nur ein Backup der delay-Datei anlegen?
+# =======================================
+if [ $BACKUP_DELAY_ONLY = y ]
+then
+    pushd $RT_SKRIPT_DIR
+    if [ ${MODE_MDELAY} -eq 1 ]; then 
+      echo "Multiple delay processing: -> \"${DELAY_FILE_LIST}\"" >> $LOG_DIR/$LOG
+      for FILE in ${DELAY_FILE_LIST}; do
+        cp -v ${FILE} $GATHER_BUFFER/${FILE}.$TIMESTAMP >> $LOG_DIR/$LOG
+        echo "-exec cp ${FILE} $GATHER_BUFFER/${FILE}.$TIMESTAMP ;" >> $LOG_DIR/$LOG
+      done
+    fi
+    cp delay_old $GATHER_BUFFER/delay.$TIMESTAMP
+    echo "-exec cp delay_old $GATHER_BUFFER/delay.$TIMESTAMP ;" >> $LOG_DIR/$LOG
+    popd
+else
+    pushd $RT_SKRIPT_DIR
+    if [ ${MODE_MDELAY} -eq 1 ]; then
+      echo "Multiple delay processing: -> \"${DELAY_FILE_LIST}\"" >> $LOG_DIR/$LOG
+      for FILE in ${DELAY_FILE_LIST}; do
+        cp -v ${FILE} $GATHER_BUFFER/${FILE}.$TIMESTAMP >> $LOG_DIR/$LOG
+        echo "-exec cp ${FILE} $GATHER_BUFFER/${FILE}.$TIMESTAMP ;" >> $LOG_DIR/$LOG
+      done
+    fi
+    cp -v delay_old $GATHER_BUFFER/delay.$TIMESTAMP >> $LOG_DIR/$LOG
+    echo "-exec cp delay_old $GATHER_BUFFER/delay.$TIMESTAMP ;" >> $LOG_DIR/$LOG
+    cp -v $NAME_PLANRT $GATHER_BUFFER/planrt.$TIMESTAMP >> $LOG_DIR/$LOG
+    echo "-exec cp $NAME_PLANRT $GATHER_BUFFER/planrt.$TIMESTAMP ;" >> $LOG_DIR/$LOG
+    popd
+fi
+
+if [ ! "${FALLBACK}" = "y" ]; then
+  # Kopieren der planrt zu den Auskunftsservern
+  # ===========================================
+  TIME=`date +%Y%m%d-%H%M%S`
+  for zeile in ${SERVERS_PATH}; do
+    set -- $zeile
+    export PLANRT_PATH=$1
+    shift
+
+    (
+      if [ ${MODE_MULTI_MATCH} -eq 1 ]; then
+        TMP_NAME=`basename $NAME_PLANRT`
+        TMP_NAME=`echo $TMP_NAME | sed 's/\(planrt_[0-9]\+\).*/\1/'`
+
+        echo "-exec scp $NAME_PLANRT $PLANRT_PATH/$TMP_NAME.neu ;" >> $LOG_DIR/$LOG
+        scp -p $NAME_PLANRT $PLANRT_PATH/$TMP_NAME.neu
+      else
+        echo "-exec scp $NAME_PLANRT $PLANRT_PATH/planrt-${TIME} ;" 
+        scp $NAME_PLANRT $PLANRT_PATH/planrt-${TIME} 
+      fi
+
+      REMOTE_HOST=`echo $zeile | awk -F':' '{ if (NF == 2) print $1; }'`
+      if [ "x${REMOTE_HOST}" != "x" ]; then
+        REMOTE_PATH=`echo $zeile | awk -F':' '{ if (NF == 2) print $2; }'`
+        if [ ${MODE_MULTI_MATCH} -eq 1 ]; then
+          echo "ssh $REMOTE_HOST mv $REMOTE_PATH/$TMP_NAME.neu $REMOTE_PATH/$TMP_NAME ;" >> $LOG_DIR/$LOG
+          ssh $REMOTE_HOST "mv $REMOTE_PATH/$TMP_NAME.neu $REMOTE_PATH/$TMP_NAME" >> $LOG_DIR/$LOG 2>&1
+        else
+          echo "-exec ssh ${REMOTE_HOST} mv ${REMOTE_PATH}/planrt-${TIME} ${REMOTE_PATH}/planrt ;" 
+          ssh ${REMOTE_HOST} "mv ${REMOTE_PATH}/planrt-${TIME} ${REMOTE_PATH}/planrt" 
+        fi
+      else
+        if [ ${MODE_MULTI_MATCH} -eq 1 ]; then
+          echo "mv $PLANRT_PATH/$TMP_NAME.neu $PLANRT_PATH/$TMP_NAME ;" >> $LOG_DIR/$LOG
+          mv $PLANRT_PATH/$TMP_NAME.neu $PLANRT_PATH/$TMP_NAME
+        else
+          echo "-exec mv $PLANRT_PATH/planrt-${TIME} $PLANRT_PATH/planrt" 
+          mv $PLANRT_PATH/planrt-${TIME} $PLANRT_PATH/planrt 
+        fi
+      fi
+    )    >> $LOG_DIR/$LOG
+  done
+fi
+
+#-------------------------------------------------------------------------------
+# Nachschauen, ob bereits 1 Minute nach dem letzten Aufraeumen verstrichen ist
+# Dazu in Datei $CLEAN_NEXT nachschauen, sofern vorhanden
+if [ -f $CLEAN_NEXT ]
+then
+    REF_DATUM=`cat $CLEAN_NEXT|awk '{print $1}'`
+    REF_JAHR=`echo $REF_DATUM|cut -d- -f1`
+    REF_MONAT=`echo $REF_DATUM|cut -d- -f2`
+    REF_TAG=`echo $REF_DATUM|cut -d- -f3`
+
+    REF_ZEIT=`cat $CLEAN_NEXT|awk '{print $2}'`
+    REF_STUNDEN=`echo $REF_ZEIT|cut -d: -f1`
+    REF_MINUTEN=`echo $REF_ZEIT|cut -d: -f2`
+    REF_SEKUNDEN=`echo $REF_ZEIT|cut -d: -f3|cut -d+ -f1`
+
+    let REF_TS="${REF_JAHR}${REF_MONAT}${REF_TAG}${REF_STUNDEN}${REF_MINUTEN}${REF_SEKUNDEN}"
+    # 1 Minute auf gelesenen Zeitstempel aufaddieren
+    let REF_TS=${REF_TS}+100
+
+    echo "TS=$TIMESTAMP REF_TS=$REF_TS" >> $LOG_DIR/$LOG
+
+    if [ ${TIMESTAMP} -gt ${REF_TS} ] || [ ${FORCE_CLEANUP} -eq 1 ]; then
+        mv $GATHER_BUFFER $CLEAN_BUFFER/`basename $GATHER_BUFFER`-${TIME_STAMP}
+        mkdir -p $GATHER_BUFFER
+        # Aufraeumen wird gleich angestossen, jetzt neuen Zeitstempel setzen
+        echo "${DATUM} ${ZEIT}" > $CLEAN_NEXT
+
+        if [ ${FORCE_CLEANUP} -eq 1 ]; then
+          echo "Call: $CLEAN_SCRIPT $RT_SKRIPT_DIR $RT_MATCH_DIR $CLEAN_BUFFER $FALLBACK" >> $LOG_DIR/$LOG
+          $CLEAN_SCRIPT $RT_SKRIPT_DIR $RT_MATCH_DIR ${CLEAN_BUFFER_CURRENT} $FALLBACK >> $LOG_DIR/$LOG
+        else
+          echo "Call: nohup $CLEAN_SCRIPT $RT_SKRIPT_DIR $RT_MATCH_DIR $CLEAN_BUFFER $FALLBACK &" >> $LOG_DIR/$LOG
+          nohup $CLEAN_SCRIPT $RT_SKRIPT_DIR $RT_MATCH_DIR ${CLEAN_BUFFER_CURRENT} $FALLBACK >> $LOG_DIR/$LOG &
+        fi 
+    fi
+else
+    # Zeitstempel fuer Aufraeumen initial setzen
+    echo "${DATUM} ${ZEIT}" > $CLEAN_NEXT
+fi
+
+# Ggf. Unterverzeichnis zum Aufsammeln der planrt's und delay_old's initial anlegen
+if [ ! -d $GATHER_BUFFER ]
+then
+    mkdir -p $GATHER_BUFFER
+fi
+
+# Aufraeumen
+# ===========================================
+if [ -f ${NAME_STATE} ]; then
+  echo "Remove ${NAME_STATE}" >> $LOG_DIR/$LOG
+  rm -v ${NAME_STATE} >> $LOG_DIR/$LOG
+fi
+echo "Remove $RT_MATCH_DIR/realtime.log" >> $LOG_DIR/$LOG
+rm -v $RT_MATCH_DIR/realtime.log >> $LOG_DIR/$LOG
+
+rm -v $NAME_PLANRT 
+echo "-exec rm -v $NAME_PLANRT" >> $LOG_DIR/$LOG
+
+date >> $LOG_DIR/$LOG
+echo Info: Ende erreicht >> $LOG_DIR/$LOG

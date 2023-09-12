@@ -1,0 +1,61 @@
+RT_SERVER_MOD               37
+deltime_diff                1440
+
+RT_EXACT_MATCH              0
+write_log_tpl               0
+auto_del_time               0
+rt_min_koord_match          1
+rt_filterkriterien          2049
+rt_fahrt_del_time           60
+rt_istsuche_modus           2
+rt_izs_verfuegbar           1
+rt_del_fid_zno_change       0
+rt_konsistenzcheck_zz       0
+rt_ft_push_allowed          0
+rt_zugpath_halt_red         40
+rt_zugpath_strecke_red      20
+rt_zugpath_vorschau         60
+rt_zugpath_stop_pre         80
+rt_zugpath_stop_div         100000
+
+rt_add_planrt_ts_plandata  0
+rt_multi_match_mode        0
+rt_use_old_planrt          1 
+
+% Schreiben der Datei delay_history.log nur aktivieren,
+% wenn diese vom planrt_copy-Skript weggeraeumt wird.
+%
+write_rt_hist_log 0
+
+write_rt_stat_tpl 0
+write_rt_stat_log 0
+
+advanced_rt_log   0
+advanced_hist_log 0
+
+rt_write_zugbaum     3
+rt_ft_push_allowed   1
+rt_ft_immer_push_rel 1
+
+faf_enabled                  1
+hafasgis_trans_completion    0
+
+% Um RT-Daten auch an durchbundene Zuege zu kopieren
+rt_overwrite_modus 2
+handle_rt_data_v_kw 4 
+
+% Löscht ab und zu die empfangenen Daten aus dem Backup-Buffer
+rt_delete_old_data_bb 1800
+% Die delay_list ist sehr gross und belastet das System unnoetig
+% Daher nur einmal je Stunde schreiben, damit die Top-Delay-Liste
+% fuer Entwicklungszwecke noch benutzbar ist.
+% ---------------------------------------------------------------
+delaylist_interval   3600
+
+% *I-RT-Texte nur fuer Zusatzfahrten anlegen
+% gleiches fuer ti rn to ad ca
+%
+rt_cs_ignore_ft  8192
+rt_cs_ift_keys   {21076 29801 29294 29807 24932 25441}
+
+REF_NORM 105714

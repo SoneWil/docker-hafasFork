@@ -1,0 +1,148 @@
+#!/bin/bash
+
+RT_SKRIPT_DIR=$1
+RT_MATCH_DIR=$2
+CLEAN_BUFFER=$3
+FALLBACK=$4
+
+export ORIGIN_PATH=$RT_MATCH_DIR/rt_delay
+export WEBSERVERPATHS=`cat $RT_SKRIPT_DIR/webserver_tpl.data`
+export HISTORYPATHS=`cat $RT_SKRIPT_DIR/history.data`
+export LOG_DIR=$RT_MATCH_DIR/log
+export LOG=planrt_clean.log
+export RT_SKRIPT_DIR RT_MATCH_DIR CLEAN_BUFFER FALLBACK
+export DELAYLOG=$CLEAN_BUFFER/delay_statistik.log
+export DELAYHISTORY=$CLEAN_BUFFER/delay_history.log
+
+# DEBUG_MODE 0 or 1
+export DEBUG_MODE=0
+
+#-------------------------------------------------------------------------------
+date >> $LOG_DIR/$LOG
+echo Info: neuer Start >> $LOG_DIR/$LOG
+
+if [ "${RT_MISC_DIR}" = "x" ]; then
+  echo "No redundant Match Server, setting RT_MISC_DIR to RT_HAFAS_DIR" >> $LOG_DIR/$LOG
+  RT_MISC_DIR=${RT_HAFAS_DIR}
+fi
+
+# delay_statistik.pl aufrufen
+# -----------------------------
+if [ -e $DELAYLOG ];
+then
+    perl $RT_SKRIPT_DIR/delay_statistik.pl $DELAYLOG $RT_SKRIPT_DIR/statistic
+    echo "-exec perl $RT_SKRIPT_DIR/delay_statistik.pl $DELAYLOG $RT_SKRIPT_DIR/statistic ;" >> $LOG_DIR/$LOG
+fi
+
+if [ "$FALLBACK" = "n" ]; then
+  # delay info statistic 
+  # ====================
+  pushd $CLEAN_BUFFER
+  echo "perl $RT_SKRIPT_DIR/zuglist_delay.pl $CLEAN_BUFFER/delay_liste -h$RT_MISC_DIR/rt_hist.log -t$RT_MISC_DIR/rt_trouble.tpl > $RT_MISC_DIR/delay.tpl" >> $LOG_DIR/$LOG
+  perl $RT_SKRIPT_DIR/zuglist_delay.pl $CLEAN_BUFFER/delay_liste -h$RT_MISC_DIR/rt_hist.log -t$RT_MISC_DIR/rt_trouble.tpl > $RT_MISC_DIR/delay.tpl
+  popd
+  echo "-exec $RT_MISC_DIR/delay.tpl created ;" >> $LOG_DIR/$LOG
+
+  # Kopieren der templates zu den webservern
+  # ===========================================
+  TIME=`date +%Y%m%d-%H%M%S`
+  for zeile in ${WEBSERVERPATHS}; do
+    set -- $zeile
+    export TPL_DIR=$1
+    shift
+
+    (
+      echo "-exec scp -v $RT_MISC_DIR/delay.tpl $TPL_DIR/customer/delay.tpl-${TIME}"
+      scp -v $RT_MISC_DIR/delay.tpl $TPL_DIR/customer/delay.tpl-${TIME}
+    
+      echo "-exec scp -v $RT_MISC_DIR/rt_log.tpl $TPL_DIR/customer/rt_log.tpl-${TIME}"
+      scp -v $RT_MISC_DIR/rt_log.tpl $TPL_DIR/customer/rt_log.tpl-${TIME}
+    
+      echo "-exec scp -v $RT_MISC_DIR/rt_log.tpl $TPL_DIR/customer/rt_trouble.tpl-${TIME}"
+      scp -v $RT_MISC_DIR/rt_trouble.tpl $TPL_DIR/customer/rt_trouble.tpl-${TIME}
+
+      echo "-exec scp -v $RT_MISC_DIR/delay_statistik.tpl $TPL_DIR/customer/delay_statistik.tpl-${TIME}"
+      scp -v $RT_MISC_DIR/delay_statistik.tpl $TPL_DIR/customer/delay_statistik.tpl-${TIME}
+
+      REMOTE_HOST=`echo $zeile | awk -F':' '{ if (NF == 2) print $1; }'`
+      if [ "x${REMOTE_HOST}" != "x" ]; then
+        REMOTE_PATH=`echo $zeile | awk -F':' '{ if (NF == 2) print $2; }'`
+        echo "-exec ssh ${REMOTE_HOST} mv ${REMOTE_PATH}/customer/delay.tpl-${TIME} ${REMOTE_PATH}/customer/delay.tpl"     
+        ssh ${REMOTE_HOST} "mv ${REMOTE_PATH}/customer/delay.tpl-${TIME} ${REMOTE_PATH}/customer/delay.tpl"
+
+        echo "-exec ssh ${REMOTE_HOST} mv ${REMOTE_PATH}/customer/rt_log.tpl-${TIME} ${REMOTE_PATH}/customer/rt_log.tpl"
+        ssh ${REMOTE_HOST} "mv ${REMOTE_PATH}/customer/rt_log.tpl-${TIME} ${REMOTE_PATH}/customer/rt_log.tpl"
+
+        echo "-exec ssh ${REMOTE_HOST} mv ${REMOTE_PATH}/customer/rt_trouble.tpl-${TIME} ${REMOTE_PATH}/customer/rt_trouble.tpl"
+        ssh ${REMOTE_HOST} "mv ${REMOTE_PATH}/customer/rt_trouble.tpl-${TIME} ${REMOTE_PATH}/customer/rt_trouble.tpl"
+
+        echo "-exec ssh ${REMOTE_HOST} mv ${REMOTE_PATH}/customer/delay_statistik.tpl-${TIME} ${REMOTE_PATH}/customer/delay_statistik.tpl"
+        ssh ${REMOTE_HOST} "mv ${REMOTE_PATH}/customer/delay_statistik.tpl-${TIME} ${REMOTE_PATH}/customer/delay_statistik.tpl"
+      else
+        echo "-exec mv $TPL_DIR/customer/delay.tpl-${TIME} $TPL_DIR/customer/delay.tpl"
+        mv $TPL_DIR/customer/delay.tpl-${TIME} $TPL_DIR/customer/delay.tpl
+
+        echo "-exec mv $TPL_DIR/customer/rt_log.tpl-${TIME} $TPL_DIR/customer/rt_log.tpl"
+        mv $TPL_DIR/customer/rt_log.tpl-${TIME} $TPL_DIR/customer/rt_log.tpl
+
+        echo "-exec mv $TPL_DIR/customer/rt_trouble.tpl-${TIME} $TPL_DIR/customer/rt_trouble.tpl"
+        mv $TPL_DIR/customer/rt_trouble.tpl-${TIME} $TPL_DIR/customer/rt_trouble.tpl
+
+        echo "-exec mv $TPL_DIR/customer/delay_statistik.tpl-${TIME} $TPL_DIR/customer/delay_statistik.tpl"
+        mv $TPL_DIR/customer/delay_statistik.tpl-${TIME} $TPL_DIR/customer/delay_statistik.tpl
+      fi
+    )    >> $LOG_DIR/$LOG
+  done
+
+  # History 
+  for zeile in ${HISTORYPATHS}; do
+    set -- $zeile
+    export HISTORY_DIR=$1
+    shift
+
+    (
+      if [ -f $DELAYHISTORY ]; then
+        ls -l  $DELAYHISTORY
+
+        echo "-exec scp -v $DELAYHISTORY $HISTORY_DIR/delay_history.log-${TIME}"
+        scp -v $DELAYHISTORY $HISTORY_DIR/delay_history.log-${TIME}
+    
+        REMOTE_HOST=`echo $zeile | awk -F':' '{ if (NF == 2) print $1; }'`
+        if [ "x${REMOTE_HOST}" != "x" ]; then
+          REMOTE_PATH=`echo $zeile | awk -F':' '{ if (NF == 2) print $2; }'`
+          echo "-exec ssh ${REMOTE_HOST} mv ${REMOTE_PATH}/delay_history.log-${TIME} ${REMOTE_PATH}/delay_history.log"     
+          ssh ${REMOTE_HOST} "mv ${REMOTE_PATH}/delay_history.log-${TIME} ${REMOTE_PATH}/delay_history.log"
+        else
+          echo "-exec mv $HISTORY_DIR/delay_history.log-${TIME} $HISTORY_DIR/delay_history.log"
+          mv $HISTORY_DIR/delay_history.log-${TIME} $HISTORY_DIR/delay_history.log
+        fi
+       else
+         echo "Nothing to do for $DELAYHISTORY"
+       fi 
+    )    >> $LOG_DIR/$LOG
+  done
+fi
+
+
+# Backup
+# ======
+if [ "$DEBUG_MODE" = "1" ]
+then
+  export PLANRT_PATH_BACKUP=$LOG_DIR/backup/delay_log_`date +%y%m%d%H%M%S`.tgz
+
+  pushd $CLEAN_BUFFER
+  tar cvzf $PLANRT_PATH_BACKUP delay_liste delay.* delay_part* planrt* realtime.log
+  popd
+  echo "-exec tar czf $PLANRT_PATH_BACKUP delay_liste delay.* delay_part* planrt* realtime.log ;" >> $LOG_DIR/$LOG
+fi
+
+# Aufraeumen
+# ==========
+if [ "x${CLEAN_BUFFER}" != "x" ] && [ "x${CLEAN_BUFFER}" != "x/" ]; then
+  echo "-exec /bin/rm -rf $CLEAN_BUFFER ;" >> $LOG_DIR/$LOG
+  cd $RT_SKRIPT_DIR
+  /bin/rm -rvf $CLEAN_BUFFER >> $LOG_DIR/$LOG
+fi
+
+date >> $LOG_DIR/$LOG
+echo Info: Ende erreicht >> $LOG_DIR/$LOG
