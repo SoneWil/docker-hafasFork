@@ -1,0 +1,79 @@
+endpointBaseUrl: "http://0.0.0.0:8081/restproxy/"
+endpointSettings: "?timeout=30000"
+externalUrl: "http://localhost:8081/restproxy/"
+
+enableOpenAPI: true
+accessId: "ttl"
+
+availableServices:
+  location.name:
+    key: "location.name"
+    path: "location.name"
+    name: "Location search by name"
+  location.nearbystops:
+    key: "location.nearbystops"
+    path: "location.nearbystops"
+    name: "Location search by coordinate"
+  arrivalBoard:
+    key: "arrivalBoard"
+    path: "arrivalBoard"
+    name: "Arrival board"
+  departureBoard:
+    key: "departureBoard"
+    path: "departureBoard"
+    name: "Departure board"
+  journeyDetail:
+    key: "journeyDetail"
+    path: "journeyDetail"
+    name: "Journey detail"
+  journeyMatch:
+    key: "journeyMatch"
+    path: "journeyMatch"
+    name: "Journey match"
+  trip:
+    key: "trip"
+    path: "trip"
+    name: "Trip search"
+    configuration:
+      maxNumB: 5
+      maxNumF: 6
+  intervalsearch:
+    key: "intervalsearch"
+    path: "interval"
+    name: "Interval search"
+  reconstruction:
+    key: "reconstruction"
+    path: "recon"
+    name: "Reconstruction"
+  reconstructionMatch:
+    key: "reconstructionMatch"
+    path: "reconMatch"
+    name: "Reconstruction Match"
+  datainfo:
+    key: "datainfo"
+    path: "datainfo"
+    name: "Data info"
+
+serviceConsumerSettings: 
+- apiKey: "ttl"
+  services: ["*"]
+
+hciBackendConfigurations: 
+- id: "default"
+  # define the HAFAS main server endpoints
+  #  one HAFAS main server: uris: "hafas://localhost:10101"
+  #  a range of four HAFAS main servers: uris: "hafas://localhost:[10101:10104]"
+  #  a range of two HAFAS main server ranges: uris: "hafas://localhost:[10101:10104;10201:10204]"
+  #  two HAFAS main servers on different hosts: uris: "hafas://hosta:10101,hafas://hostb:10101"
+  uris: "hafas://localhost:[10101:10104]"
+  # set as maxParallel the number of HAFAS main servers configured in 'uris'
+  maxParallel: 4
+  # use a low number of attemtps (1 is recommended) as it will trigger
+  # the same request in case of an failure
+  attempts: 1
+  clientId: "HAFAS"
+  version: "1.66"
+  doSecure: true
+  securityParameter: "AID"
+  securityValue: "hf7mcf9bv3nv8g5f"
+  defaultLanguage: "en"

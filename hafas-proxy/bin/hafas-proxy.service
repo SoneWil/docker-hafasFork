@@ -1,0 +1,52 @@
+# This is a systemd unit file which can serve as alternative way of starting 
+# the application.
+#
+# You have two ways of using systemd: as root or as normal user.
+#
+# To use this file as root, follow this procedure:
+# 1. rename it: remove the extension ".example"
+# 2. edit it and put the real path to the installation into "WorkingDirectory"
+#    and "ExecStart" (replace "/REAL/PATH/HERE")
+# 3. put the real username which should be used to run the application into 
+#    "User" (replace REALUSER)
+# 4. place this file in the directory /etc/systemd/system/
+# 5. execute "systemctl daemon-reload" to make systemd recognize it
+# 6. execute "systemctl enable hafas-proxy.service" to enable the application
+# 7. execute "systemctl start hafas-proxy.service" to run the application
+#
+# To use this file as normal user, follow this procedure:
+# 1. check if you have to enable systemd user instance lingering via 
+#    "loginctl enable-linger REALUSER" (replace REALUSER with your username)
+     => this is the case if you need to start the application without
+        any user logging in after reboot
+# 2. rename this file: remove the extension ".example"
+# 3. edit it and put the real path to the installation into "WorkingDirectory"
+#    and "ExecStart" (replace "/REAL/PATH/HERE")
+# 4. delete or comment out the line below which starts with "User="
+# 5. place this file in the directory ~/.config/systemd/user/
+#    (you may have to create it via "mkdir -p ~/.config/systemd/user/")
+# 6. execute "systemctl --user daemon-reload" to make systemd recognize it
+# 7. execute "systemctl --user enable hafas-proxy.service" to enable the 
+#    application
+# 8. execute "systemctl --user start hafas-proxy.service" to run the 
+#    application
+#
+# You can view the output using "journalctl -t HaCon-HAFAS-Proxy -e"
+# (or "journalctl -t HaCon-HAFAS-Proxy -f" if you want to follow the output).
+
+[Unit]
+Description=HaCon HAFAS Proxy
+After=network.target
+
+[Service]
+WorkingDirectory=/REAL/PATH/HERE
+ExecStart=/REAL/PATH/HERE/bin/server.sh console
+User=REALUSER
+Restart=always
+RestartSec=5
+TimeoutSec=30
+Type=simple
+SyslogIdentifier=HaCon-HAFAS-Proxy
+
+[Install]
+WantedBy=multi-user.target

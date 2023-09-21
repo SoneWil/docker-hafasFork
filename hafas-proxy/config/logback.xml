@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="30 seconds" >
+
+	<property name="LOG_DIR" value="logs" />
+	<property name="PRJ_NAME" value="hafas-proxy-standard" />
+	<property name="ROLL_SUFFIX" value=".%d{yyyy-MM-dd}.gz" />
+	<property name="MAX_HISTORY" value="14" />
+
+	<appender name="LOGFILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<File>${LOG_DIR}/${PRJ_NAME}.log</File>
+		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<fileNamePattern>${LOG_DIR}/${PRJ_NAME}.log${ROLL_SUFFIX}</fileNamePattern>
+			<maxHistory>${MAX_HISTORY}</maxHistory>
+		</rollingPolicy>
+
+		<encoder>
+			<pattern>%d %-5p [%t] %c{1} [%L]: %m%n</pattern>
+		</encoder>
+	</appender>
+
+	<appender name="ACCESS_LOG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${LOG_DIR}/access.log</file>
+		<filter class="ch.qos.logback.classic.filter.LevelFilter">
+			<level>INFO</level>
+			<onMatch>ACCEPT</onMatch>
+			<onMismatch>DENY</onMismatch>
+		</filter>
+		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<fileNamePattern>${LOG_DIR}/access.log${ROLL_SUFFIX}
+			</fileNamePattern>
+			<maxHistory>${MAX_HISTORY}</maxHistory>
+		</rollingPolicy>
+
+		<encoder>
+			<pattern>%d{HH:mm:ss}: %msg %n</pattern>
+		</encoder>
+	</appender>
+
+	<appender name="FULLTAKE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${LOG_DIR}/fulltake.log</file>
+		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<fileNamePattern>${LOG_DIR}/fulltake.log${ROLL_SUFFIX}</fileNamePattern>
+			<maxHistory>${MAX_HISTORY}</maxHistory>
+		</rollingPolicy>
+
+		<encoder>
+			<pattern>%d{HH:mm:ss}: %msg %n</pattern>
+		</encoder>
+	</appender>
+
+	<logger name="de" level="INFO" />
+	<logger name="org" level="WARN" />
+	<logger name="com" level="WARN" />
+	<logger name="net" level="WARN" />
+	<logger name="org.apache.camel" level="INFO" />
+
+	<root level="INFO">
+		<appender-ref ref="LOGFILE" />
+	</root>
+
+	<logger name="accesslog" level="INFO" additivity="false">
+		<appender-ref ref="ACCESS_LOG" />
+	</logger>
+
+	<logger name="fulltake" level="OFF" additivity="false">
+		<appender-ref ref="FULLTAKE" />
+	</logger>
+
+</configuration>
