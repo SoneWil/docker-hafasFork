@@ -318,17 +318,17 @@ create_dir ${SERVER_DIR} "the HAFAS server binary"
 if [ ! -f ${WRAPPER_BIN} ]; then
     log_info_and_console "Creating a new server wrapper in the server directory."
     cat ${SUPER_BASE_DIR}/opt/hafas/script/server.sh \
-        | sed "s§^# Provides: primary_name-product_state-hafas-server-secondary_name$§# Provides: ${INT_NAME}§" \
-        | sed "s§^RUNAS_USER=\"\"$§RUNAS_USER=\"${RUNAS_USER}\"§" \
-        | sed "s§^PRIMARY_NAME=\"\"$§PRIMARY_NAME=\"${PRIMARY_NAME}\"§" \
-        | sed "s§^SECONDARY_NAME=\"\"$§SECONDARY_NAME=\"${SECONDARY_NAME}\"§" \
-        | sed "s§^PLAN_VERSION=\"\"$§PLAN_VERSION=\"${PLAN_VERSION}\"§" \
-        | sed "s§^PLAN_SUFFIX=\"\"$§PLAN_SUFFIX=\"${PLAN_SUFFIX}\"§" \
-        | sed "s§^PRODUCT_STATE=\"\"$§PRODUCT_STATE=\"${PRODUCT_STATE}\"§" \
-        | sed "s§^SERVER_TYPE=\"std\"$§SERVER_TYPE=\"${SERVER_TYPE}\"§" \
-        | sed "s§^SERVER_TYPE=\"main\"$§SERVER_TYPE=\"${SERVER_TYPE}\"§" \
-        | sed "s§^PORT=\"\"$§PORT=\"${PORT}\"§" \
-        | sed "s§^CONFIGURED=\"NO\"$§CONFIGURED=\"YES_BUT_NOT_REVIEWED\"§" \
+        | sed "sï¿½^# Provides: primary_name-product_state-hafas-server-secondary_name$ï¿½# Provides: ${INT_NAME}ï¿½" \
+        | sed "sï¿½^RUNAS_USER=\"\"$ï¿½RUNAS_USER=\"${RUNAS_USER}\"ï¿½" \
+        | sed "sï¿½^PRIMARY_NAME=\"\"$ï¿½PRIMARY_NAME=\"${PRIMARY_NAME}\"ï¿½" \
+        | sed "sï¿½^SECONDARY_NAME=\"\"$ï¿½SECONDARY_NAME=\"${SECONDARY_NAME}\"ï¿½" \
+        | sed "sï¿½^PLAN_VERSION=\"\"$ï¿½PLAN_VERSION=\"${PLAN_VERSION}\"ï¿½" \
+        | sed "sï¿½^PLAN_SUFFIX=\"\"$ï¿½PLAN_SUFFIX=\"${PLAN_SUFFIX}\"ï¿½" \
+        | sed "sï¿½^PRODUCT_STATE=\"\"$ï¿½PRODUCT_STATE=\"${PRODUCT_STATE}\"ï¿½" \
+        | sed "sï¿½^SERVER_TYPE=\"std\"$ï¿½SERVER_TYPE=\"${SERVER_TYPE}\"ï¿½" \
+        | sed "sï¿½^SERVER_TYPE=\"main\"$ï¿½SERVER_TYPE=\"${SERVER_TYPE}\"ï¿½" \
+        | sed "sï¿½^PORT=\"\"$ï¿½PORT=\"${PORT}\"ï¿½" \
+        | sed "sï¿½^CONFIGURED=\"NO\"$ï¿½CONFIGURED=\"YES_BUT_NOT_REVIEWED\"ï¿½" \
         > ${WRAPPER_BIN}
     if [ $? -gt 0 ]; then
         log_error "Failed to create new wrapper script. Exitting!"
@@ -433,7 +433,7 @@ case ${SERVER_TYPE} in
 		log_info_and_console "Creating 'rotate_logs.sh' for match data logfile in '${MATCH_LOG_DIR}'."
 		MATCH_ROTATE_LOGS_BIN="${MATCH_LOG_DIR}/rotate_logs.sh"
 		cat ${HAFAS_BASE_DIR}/script/rotate_logs.sh \
-			| sed "s§^RT_MATCH_DIR=\"\"$§RT_MATCH_DIR=\"${SERVER_DIR}\"§" \
+			| sed "sï¿½^RT_MATCH_DIR=\"\"$ï¿½RT_MATCH_DIR=\"${SERVER_DIR}\"ï¿½" \
 			> ${MATCH_ROTATE_LOGS_BIN}
 		chmod 775 ${MATCH_LOG_DIR}/rotate_logs.sh
 		if [ ${UID} -eq 0 ]; then chown ${RUNAS_USER} ${MATCH_ROTATE_LOGS_BIN}; fi
